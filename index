@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>猫猫抽卡 v3.1（含概率公示）</title>
+<style>
+  body {
+    font-family: "Segoe UI", sans-serif;
+    background: linear-gradient(180deg, #fdfbfb, #ebedee);
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .top-bar {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: white;
+    border-radius: 12px;
+    padding: 10px 16px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    font-size: 16px;
+    line-height: 1.6;
+    text-align: left;
+  }
+
+  /* 左侧概率说明面板 */
+  .info-bar {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 14px 18px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    font-size: 14px;
+    line-height: 1.8;
+    text-align: left;
+    width: 260px;
+  }
+
+  .info-bar h2 {
+    font-size: 16px;
+    margin-top: 0;
+    color: #333;
+    text-align: center;
+  }
+
+  .info-bar ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 5px 0 10px 0;
+  }
+
+  .info-bar li {
+    margin-bottom: 3px;
+  }
+
+  .info-bar strong {
+    color: #4CAF50;
+  }
+
+  .card-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 100px;
+  }
+
+  .card {
+    width: 120px;
+    height: 180px;
+    perspective: 600px;
+  }
+
+  .card-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+  }
+
+  .card.flip .card-inner {
+    transform: rotateY(180deg);
+  }
+
+  .card-front, .card-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 10px;
+    backface-visibility: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    border: 2px solid #999;
+  }
+
+  .card-front {
+    background: #fff;
+  }
+
+  .card-back {
+    background: #4CAF50;
+    color: white;
+    transform: rotateY(180deg);
+  }
+
+  .shine {
+    animation: shine 1s ease-out;
+  }
+
+  @keyframes shine {
+    0% { box-shadow: 0 0 5px rgba(255,215,0,0.2); }
+    50% { box-shadow: 0 0 30px rgba(255,215,0,1); }
+    100% { box-shadow: 0 0 5px rgba(255,215,0,0.2); }
+  }
+
+  .buttons {
+    margin-top: 40px;
+  }
+
+  button {
+    padding: 10px 18px;
+    margin: 0 8px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    color: white;
+    background: linear-gradient(180deg,#4caf50,#3b9d42);
+  }
+
+  button:disabled {
+    background: gray;
+    cursor: not-allowed;
+  }
+
+  .message {
+    margin-top: 20px;
+    font-size: 16px;
+    color: #444;
+  }
+</style>
+</head>
+<body>
+
+<h1>🐱 猫猫抽卡 v3.1 🐾</h1>
+
+<!-- 左侧概率栏 -->
+<div class="info-bar">
+  <h2>🎲 概率一览</h2>
+  <ul>
+    <li><strong>奖奖奖～</strong>：0.06%</li>
+    <li><strong>一根猫毛</strong>：2.76%</li>
+    <li><strong>再抽一次</strong>：28.65%</li>
+    <li><strong>谢谢惠顾</strong>：68.53%</li>
+  </ul>
+  <h2>📜 保底规则</h2>
+  <ul>
+    <li>每 5 抽：至少获得一次“再抽一次”或更好。</li>
+    <li>每 50 抽：必得“一根猫毛”或更好。</li>
+  </ul>
+</div>
+
+<!-- 右侧统计 -->
+<div class="top-bar" id="stats">
+  剩余抽卡次数：20<br>
+  一根猫毛：0<br>
+  猫猫大人永远不缺礼物：0
+</div>
+
+<!-- 卡牌区 -->
+<div class="card-container" id="container"></div>
+
+<!-- 按钮 -->
+<div class="buttons">
+  <button id="draw1">抽一次</button>
+  <button id="draw10">抽十次</button>
+</div>
+
+<div class="message" id="msg"></div>
+
+<script>
+let remaining = 20;
+let catHair = 0;
+let bigGift = 0;
+let drawsSinceRare = 0;
+let drawsSinceEpic = 0;
+
+const container = document.getElementById("container");
+const stats = document.getElementById("stats");
+const msg = document.getElementById("msg");
+const draw1 = document.getElementById("draw1");
+const draw10 = document.getElementById("draw10");
+
+// 更新统计
+function updateStats() {
+  stats.innerHTML = `剩余抽卡次数：${remaining}<br>一根猫毛：${catHair}<br>猫猫大人永远不缺礼物：${bigGift}`;
+  if (remaining <= 0) {
+    draw1.disabled = true;
+    draw10.disabled = true;
+    setTimeout(() => {
+      alert(`抽卡结束！\n本次共获得：\n一根猫毛：${catHair}\n猫猫大人永远不缺礼物：${bigGift}`);
+    }, 800);
+  }
+}
+
+// 抽卡结果计算（含保底逻辑）
+function drawResult() {
+  const p = Math.random() * 100;
+  let result;
+  if (p < 0.06) result = "奖奖奖～";
+  else if (p < 2.82) result = "一根猫毛";
+  else if (p < 31.47) result = "再抽一次";
+  else result = "谢谢惠顾";
+
+  // 更新保底计数
+  if (result === "谢谢惠顾") {
+    drawsSinceRare++;
+    drawsSinceEpic++;
+  } else {
+    drawsSinceRare = 0;
+    if (result === "一根猫毛" || result === "奖奖奖～") drawsSinceEpic = 0;
+    else drawsSinceEpic++;
+  }
+
+  // 50 抽保底猫毛
+  if (drawsSinceEpic >= 49) {
+    drawsSinceEpic = 0;
+    result = "一根猫毛";
+  }
+
+  // 5 抽保底稀有
+  if (drawsSinceRare >= 5) {
+    drawsSinceRare = 0;
+    result = "再抽一次";
+  }
+
+  return result;
+}
+
+// 动画生成卡片
+function createCard(result, delay) {
+  const card = document.createElement("div");
+  card.className = "card";
+  const inner = document.createElement("div");
+  inner.className = "card-inner";
+  const front = document.createElement("div");
+  front.className = "card-front";
+  front.textContent = "抽卡中...";
+  const back = document.createElement("div");
+  back.className = "card-back";
+  back.textContent = result;
+
+  inner.appendChild(front);
+  inner.appendChild(back);
+  card.appendChild(inner);
+  container.appendChild(card);
+
+  setTimeout(() => {
+    card.classList.add("flip");
+    if (result === "一根猫毛" || result === "奖奖奖～") {
+      back.classList.add("shine");
+    }
+  }, delay);
+}
+
+// 主抽卡逻辑
+function draw(times) {
+  if (remaining <= 0) return;
+  let actual = Math.min(times, remaining);
+  msg.textContent = `抽${actual}次中...`;
+  draw1.disabled = true;
+  draw10.disabled = true;
+  container.innerHTML = "";
+
+  for (let i = 0; i < actual; i++) {
+    const result = drawResult();
+    remaining--;
+
+    if (result === "再抽一次") remaining++;
+    if (result === "一根猫毛") catHair++;
+    if (result === "奖奖奖～") bigGift++;
+
+    createCard(result, i * 250);
+  }
+
+  setTimeout(() => {
+    draw1.disabled = remaining <= 0;
+    draw10.disabled = remaining <= 0;
+    updateStats();
+    msg.textContent = "抽完啦～";
+  }, actual * 250 + 1000);
+}
+
+draw1.onclick = () => draw(1);
+draw10.onclick = () => draw(10);
+updateStats();
+</script>
+
+</body>
+</html>
